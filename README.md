@@ -11,6 +11,7 @@ A full-stack agentic application built for the **AI Builder Candidate Project**.
                                                                           └──────────────────┘
 ```
 
+
 ## Architecture
 
 | Component | Technology | Role |
