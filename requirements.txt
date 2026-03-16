@@ -1,0 +1,13 @@
+# ── MCP Server ────────────────────────────────────────────────────────────────
+mcp[cli]>=1.9.0           # FastMCP framework (FastMCP is bundled inside the mcp package)
+httpx>=0.27.0             # Async HTTP client for OpenWeatherMap API calls
+python-dotenv>=1.0.0      # .env file loading
+
+# ── Agent Backend ─────────────────────────────────────────────────────────────
+fastapi>=0.115.0          # REST API framework for the agent backend
+uvicorn[standard]>=0.30.0 # ASGI server to run FastAPI
+langchain>=0.3.0          # Core LangChain framework
+langchain-openai>=0.2.0        # OpenAI LLM integration for LangChain
+langchain-mcp-adapters  # Bridge: converts MCP tools → LangChain BaseTool
+langgraph>=0.2.0          # ReAct agent runtime (create_react_agent)
+pydantic>=2.0.0           # Data validation (schemas)

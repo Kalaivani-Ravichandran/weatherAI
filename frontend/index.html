@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather AI Agent</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #22263a;
+      --border:    #2e3250;
+      --accent:    #5c6ef8;
+      --accent-lt: #7c8dff;
+      --user-bg:   #2a3577;
+      --bot-bg:    #1e2235;
+      --text:      #e2e4f0;
+      --muted:     #7a7f9a;
+      --success:   #3ecf8e;
+      --warn:      #f4a042;
+      --danger:    #e05c7a;
+      --radius:    14px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    header .logo {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--accent), #9b6ef8);
+      border-radius: 10px;
+      display: grid; place-items: center;
+      font-size: 20px;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .3px; }
+    header p  { font-size: .75rem; color: var(--muted); }
+    header .status {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 6px;
+      font-size: .75rem; color: var(--muted);
+    }
+    header .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; } 50% { opacity: .4; }
+    }
+
+    /* ── Chat area ── */
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      scroll-behavior: smooth;
+    }
+    #chat::-webkit-scrollbar { width: 6px; }
+    #chat::-webkit-scrollbar-track { background: transparent; }
+    #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Message bubbles ── */
+    .msg { display: flex; gap: 12px; max-width: 780px; }
+    .msg.user { flex-direction: row-reverse; margin-left: auto; }
+
+    .avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      flex-shrink: 0;
+      display: grid; place-items: center;
+      font-size: 16px;
+    }
+    .msg.bot  .avatar { background: var(--surface2); border: 1px solid var(--border); }
+    .msg.user .avatar { background: var(--user-bg); }
+
+    .bubble {
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      line-height: 1.6;
+      font-size: .9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.bot  .bubble { background: var(--bot-bg); border: 1px solid var(--border); }
+    .msg.user .bubble { background: var(--user-bg); }
+
+    /* ── Tool trace accordion ── */
+    .tool-trace {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      font-size: .8rem;
+    }
+    .tool-trace summary {
+      padding: 8px 12px;
+      background: var(--surface2);
+      cursor: pointer;
+      user-select: none;
+      color: var(--muted);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .tool-trace summary:hover { color: var(--text); }
+    .tool-trace .trace-body { padding: 12px; background: var(--bg); }
+    .tool-step {
+      padding: 10px 12px; margin-bottom: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .tool-step:last-child { margin-bottom: 0; }
+    .tool-step .tool-name {
+      font-weight: 600;
+      color: var(--accent-lt);
+      font-size: .78rem;
+      margin-bottom: 6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .tool-step .label { font-size: .7rem; color: var(--muted); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .5px; }
+    .tool-step pre {
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 6px 8px;
+      overflow-x: auto;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    /* ── Typing indicator ── */
+    .typing .bubble { display: flex; align-items: center; gap: 5px; padding: 14px 16px; }
+    .typing .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted);
+      animation: bounce .8s infinite;
+    }
+    .typing .dot:nth-child(2) { animation-delay: .15s; }
+    .typing .dot:nth-child(3) { animation-delay: .30s; }
+    @keyframes bounce {
+      0%,80%,100% { transform: translateY(0); }
+      40%         { transform: translateY(-6px); }
+    }
+
+    /* ── Suggestions ── */
+    #suggestions {
+      padding: 0 24px 12px;
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .chip {
+      padding: 6px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: .78rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color .2s, color .2s;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--text); }
+
+    /* ── Input bar ── */
+    form {
+      display: flex;
+      gap: 10px;
+      padding: 16px 24px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: .9rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s;
+    }
+    input[type="text"]::placeholder { color: var(--muted); }
+    input[type="text"]:focus { border-color: var(--accent); }
+
+    button[type="submit"] {
+      padding: 0 20px;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    button[type="submit"]:hover:not(:disabled) { background: var(--accent-lt); }
+    button[type="submit"]:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Error banner ── */
+    #error-banner {
+      display: none;
+      margin: 0 24px 12px;
+      padding: 10px 14px;
+      background: color-mix(in srgb, var(--danger) 15%, transparent);
+      border: 1px solid var(--danger);
+      border-radius: 8px;
+      font-size: .82rem;
+      color: var(--danger);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">🌤</div>
+  <div>
+    <h1>Weather AI Agent</h1>
+    <p>Powered by FastMCP · LangChain ReAct · Claude</p>
+  </div>
+  <div class="status"><div class="dot"></div> Live</div>
+</header>
+
+<!-- ── Chat ── -->
+<div id="chat">
+  <div class="msg bot">
+    <div class="avatar">🤖</div>
+    <div>
+      <div class="bubble">Hello! I'm your AI weather assistant. Ask me anything about current conditions, multi-day forecasts, or air quality for any city in the world.<br><br>I'll reason through your question step-by-step, call the right tools, and give you a clear, actionable answer.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Suggested queries ── -->
+<div id="suggestions">
+  <span class="chip" onclick="send(this.textContent)">🌡 Current weather in Tokyo</span>
+  <span class="chip" onclick="send(this.textContent)">📅 5-day forecast for London</span>
+  <span class="chip" onclick="send(this.textContent)">💨 Air quality in Beijing</span>
+  <span class="chip" onclick="send(this.textContent)">🌍 Compare weather: New York vs Paris</span>
+  <span class="chip" onclick="send(this.textContent)">☔ Should I carry an umbrella in Sydney tomorrow?</span>
+</div>
+
+<div id="error-banner"></div>
+
+<!-- ── Input ── -->
+<form id="form" onsubmit="handleSubmit(event)">
+  <input id="input" type="text" placeholder="Ask about weather anywhere in the world…" autocomplete="off" />
+  <button type="submit" id="send-btn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    Send
+  </button>
+</form>
+
+<script>
+  const AGENT_URL = 'http://localhost:8001/chat';
+  const chat      = document.getElementById('chat');
+  const input     = document.getElementById('input');
+  const sendBtn   = document.getElementById('send-btn');
+  const errBanner = document.getElementById('error-banner');
+  const sugBox    = document.getElementById('suggestions');
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function appendMsg(role, html) {
+    const isUser = role === 'user';
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.innerHTML = `
+      <div class="avatar">${isUser ? '🧑' : '🤖'}</div>
+      <div>${html}</div>`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return div;
+  }
+
+  function typingIndicator() {
+    const div = document.createElement('div');
+    div.className = 'msg bot typing';
+    div.id = 'typing';
+    div.innerHTML = `<div class="avatar">🤖</div><div class="bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function removeTyping() {
+    const t = document.getElementById('typing');
+    if (t) t.remove();
+  }
+
+  function showError(msg) {
+    errBanner.textContent = '⚠ ' + msg;
+    errBanner.style.display = 'block';
+    setTimeout(() => errBanner.style.display = 'none', 6000);
+  }
+
+  function buildToolTrace(toolCalls) {
+    if (!toolCalls || toolCalls.length === 0) return '';
+
+    const steps = toolCalls.map(tc => {
+      const inp  = JSON.stringify(tc.tool_input,  null, 2);
+      const out  = JSON.stringify(tc.tool_output, null, 2);
+      return `
+        <div class="tool-step">
+          <div class="tool-name">⚙ ${escapeHtml(tc.tool_name)}</div>
+          <div class="label">Input</div>
+          <pre>${escapeHtml(inp)}</pre>
+          <div class="label">Output</div>
+          <pre>${escapeHtml(out)}</pre>
+        </div>`;
+    }).join('');
+
+    return `
+      <details class="tool-trace">
+        <summary>🔍 ${toolCalls.length} tool call${toolCalls.length > 1 ? 's' : ''} — ReAct trace</summary>
+        <div class="trace-body">${steps}</div>
+      </details>`;
+  }
+
+  async function send(text) {
+    const msg = (text || input.value).trim();
+    if (!msg) return;
+
+    input.value = '';
+    sendBtn.disabled = true;
+    errBanner.style.display = 'none';
+
+    // Hide suggestions after first query
+    sugBox.style.display = 'none';
+
+    appendMsg('user', `<div class="bubble">${escapeHtml(msg)}</div>`);
+    typingIndicator();
+
+    try {
+      const res = await fetch(AGENT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg }),
+      });
+
+      removeTyping();
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || 'Server error');
+      }
+
+      const data = await res.json();
+      const traceHtml = buildToolTrace(data.tool_calls);
+      appendMsg('bot',
+        `<div class="bubble">${escapeHtml(data.response)}</div>${traceHtml}`
+      );
+    } catch (err) {
+      removeTyping();
+      showError(err.message);
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    send();
+  }
+
+  // Auto-focus
+  input.focus();
+</script>
+</body>
+</html>

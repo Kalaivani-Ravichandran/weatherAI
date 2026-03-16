@@ -1,0 +1,43 @@
+version: "3.9"
+
+# ── Weather Agentic App — Docker Compose ──────────────────────────────────────
+#
+# Services:
+#   mcp-server     FastMCP weather server    → http://localhost:8000/sse
+#   agent-backend  LangChain ReAct + FastAPI → http://localhost:8001
+#
+# Usage:
+#   docker compose up --build
+#
+# The frontend is a static HTML file — open frontend/index.html in your browser.
+
+services:
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - MCP_PORT=8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  agent-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    ports:
+      - "8001:8001"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MCP_SERVER_URL=http://mcp-server:8000/sse
+      - LLM_MODEL=${LLM_MODEL:-claude-haiku-4-5-20251001}
+    depends_on:
+      mcp-server:
+        condition: service_healthy
